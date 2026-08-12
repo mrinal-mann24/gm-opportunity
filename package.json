@@ -1,0 +1,27 @@
+{
+  "name": "gm-opportunity",
+  "version": "1.0.0",
+  "description": "Classifies inbound 1:1 WhatsApp messages from tracked numbers via an LLM and forwards sales opportunities to Microsoft Teams via n8n, mentioning the owning GM.",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "openai": "^4.68.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.19.43",
+    "tsx": "^4.16.2",
+    "typescript": "^5.9.3"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}

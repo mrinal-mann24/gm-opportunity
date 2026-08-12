@@ -1,0 +1,15 @@
+services:
+  gm-opportunity:
+    build: .
+    image: gm-opportunity:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8002:8000"
+    env_file:
+      - .env
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gm-opportunity.entrypoints=websecure"
+      - "traefik.http.routers.gm-opportunity.rule=Host(`gm-opportunity.187-127-173-25.sslip.io`)"
+      - "traefik.http.routers.gm-opportunity.tls.certresolver=letsencrypt"
+      - "traefik.http.services.gm-opportunity.loadbalancer.server.url=http://127.0.0.1:8000"
