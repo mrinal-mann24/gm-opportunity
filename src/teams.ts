@@ -39,7 +39,7 @@ export async function notifyOpportunity(params: NotifyOpportunityParams): Promis
   const mentionTag = gm ? `<br><at id="0">${gm.name}</at>` : "";
 
   const content =
-    `<b>${title}</b><br>` +
+    `<b>💰 ${title}</b><br>` +
     `<i>"${quoted}"</i><br>` +
     `Time: ${now}` +
     mentionTag;
