@@ -20,7 +20,7 @@ function formatKolkataTime(): string {
 }
 
 export async function notifyOpportunity(params: NotifyOpportunityParams): Promise<void> {
-  const { senderPhone, body, teamsChatId, gm } = params;
+  const { senderPhone, chatName, body, teamsChatId, gm } = params;
 
   if (!config.N8N_TEAMS_WEBHOOK_URL) {
     console.log("[teams] No N8N_TEAMS_WEBHOOK_URL configured — skipping notification.");
@@ -30,6 +30,7 @@ export async function notifyOpportunity(params: NotifyOpportunityParams): Promis
   const cleanPhone = stripPhoneSuffix(senderPhone);
   const quoted = body && body.trim() ? body.trim() : "(no text)";
   const now = formatKolkataTime();
+  const title = chatName || cleanPhone;
 
   // When a GM is mapped to this number, append an <at> tag at the end. Its id="0"
   // must match the entry in the `mentions` array below — together they make Teams
@@ -38,9 +39,8 @@ export async function notifyOpportunity(params: NotifyOpportunityParams): Promis
   const mentionTag = gm ? `<br><at id="0">${gm.name}</at>` : "";
 
   const content =
-    `<b>💰 Opportunity detected</b><br>` +
+    `<b>${title}</b><br>` +
     `<i>"${quoted}"</i><br>` +
-    `From: ${cleanPhone}<br>` +
     `Time: ${now}` +
     mentionTag;
 

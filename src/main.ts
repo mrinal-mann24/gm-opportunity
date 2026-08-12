@@ -4,6 +4,7 @@ import { recordMessage } from "./db";
 import { gmForPhone, isTrackedNumber } from "./gm";
 import { classifyMessage } from "./classify";
 import { notifyOpportunity } from "./teams";
+import { getChatName } from "./periskope";
 import { PeriskopeMessageData, PeriskopeWebhookPayload } from "./types";
 
 const app = express();
@@ -67,9 +68,10 @@ async function handleMessage(msg: PeriskopeMessageData): Promise<{ status: strin
   }
 
   const gm = gmForPhone(orgPhone);
+  const chatName = await getChatName(chatId, orgPhone);
 
   console.log(`[msg] Alerting Teams for ${senderPhone}${gm ? ` — mentioning ${gm.name}` : ""}.`);
-  await notifyOpportunity({ senderPhone, body, teamsChatId, gm });
+  await notifyOpportunity({ senderPhone, chatName, body, teamsChatId, gm });
 
   return { status: "ok" };
 }

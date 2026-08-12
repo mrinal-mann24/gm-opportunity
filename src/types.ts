@@ -35,6 +35,7 @@ export interface ClassifyResult {
 
 export interface NotifyOpportunityParams {
   senderPhone: string;
+  chatName: string | null;
   body: string;
   teamsChatId: string;
   gm: GmMention | null;
