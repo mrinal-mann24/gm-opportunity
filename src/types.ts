@@ -1,4 +1,6 @@
 export interface PeriskopeMessageData {
+  // message.flagged events carry the flagged message's id here; message.created uses unique_id.
+  message_id?: string;
   unique_id?: string;
   id?: { id?: string };
   chat_id?: string;
@@ -17,8 +19,13 @@ export interface PeriskopeWebhookPayload {
   data?: PeriskopeMessageData;
 }
 
+// Which pipeline produced the alert. "opportunity" = message.created → LLM → Teams (💰).
+// "flagged" = message.flagged → Teams directly, no LLM (🚩).
+export type AlertKind = "opportunity" | "flagged";
+
 export interface RecordMessageParams {
   messageId: string;
+  kind: AlertKind;
   senderPhone: string;
   body: string;
 }
@@ -33,7 +40,8 @@ export interface ClassifyResult {
   isOpportunity: boolean;
 }
 
-export interface NotifyOpportunityParams {
+export interface NotifyParams {
+  kind: AlertKind;
   senderPhone: string;
   chatName: string | null;
   body: string;

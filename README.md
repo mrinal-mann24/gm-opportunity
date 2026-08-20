@@ -2,12 +2,19 @@
 
 ## What this is
 
-An automation that watches **1:1 WhatsApp messages** (via Periskope) sent from
-a fixed set of **13 tracked phone numbers**. Each inbound message is classified
-by an LLM (via OpenRouter) for whether it's a **price query / sales
-opportunity**. If yes, an alert is posted to **Microsoft Teams** (via an n8n
-webhook) that `@mentions` the specific **GM (General Manager)** assigned to
-that phone number, so the right person is notified in real time.
+An automation that watches **1:1 WhatsApp messages** (via Periskope) on a
+fixed set of **tracked GM phone numbers** and posts alerts to **Microsoft
+Teams** (via an n8n webhook) that `@mention` the specific **GM (General
+Manager)** assigned to that phone number. There are two independent pipelines:
+
+| Periskope event | Pipeline | Teams title emoji |
+|---|---|---|
+| `message.created` | inbound message → **LLM classifies** (OpenRouter) → if it's a price query / sales opportunity → Teams | 💰 |
+| `message.flagged` | a GM **manually flags** a message in Periskope → Teams **directly, no LLM** | 🚩 |
+
+Both pipelines apply the same filters (1:1 chats only, tracked GM numbers
+only, inbound only, deduped) and post to the same Teams chat — only the
+emoji and the presence of the LLM step differ.
 
 It is a sibling project to `AIA-Flagged Automation` (same parent `Projects/`
 folder) and deliberately mirrors its architecture, stack, and deploy pattern
@@ -31,27 +38,40 @@ design from scratch.
 ## How it works (end to end)
 
 1. Periskope POSTs every webhook event to `POST /webhook`.
-2. Only events where `event`/`event_type` == `"message.created"` are handled
-   (this is Periskope's normal inbound/outbound message event — different
-   from `message.flagged`, which AIA-Flagged Automation listens for instead).
+2. `event`/`event_type` decides the pipeline (`kind`):
+   - `"message.created"` → `kind = "opportunity"` (Periskope's normal
+     inbound/outbound message event)
+   - `"message.flagged"` → `kind = "flagged"` (a GM flagged the message in
+     Periskope; the same event AIA-Flagged Automation listens for, but that
+     bot only handles `@g.us` group chats — this one only handles `@c.us`
+     1:1 chats, so they don't overlap)
+   - anything else → `{"status":"ignored"}`
 3. The message is skipped (early `{"status":"ok"}` return, no further work) if:
-   - it's outbound (`from_me: true`) — avoids reacting to the GM's own replies
+   - it's outbound (`from_me: true`) — avoids reacting to the GM's own
+     replies, on both pipelines (a GM flagging their own message is not
+     forwarded)
    - `chat_id` doesn't end in `@c.us` — only 1:1 chats are considered, group
      chats (`@g.us`) are ignored entirely
-   - the sender's phone isn't one of the 13 numbers in [src/gm.ts](src/gm.ts)
-     — this is a strict allowlist, not a blocklist, so no LLM spend happens
-     on untracked senders
-   - the `message_id` was already recorded in Supabase — Periskope is known
-     to fire the same webhook event 2-3 times per delivery, so this dedup
-     check runs *before* the LLM call specifically to avoid double-billing
-     OpenRouter on duplicate deliveries
-4. The message body is sent to an LLM via OpenRouter ([src/classify.ts](src/classify.ts))
-   with a system prompt asking for strict JSON:
-   `{"is_opportunity": boolean, "reason": string}`. If `is_opportunity` is
-   false (or the LLM call errors — it fails closed), processing stops here.
-5. If it's an opportunity, the alert is posted to `N8N_TEAMS_WEBHOOK_URL`
-   with the message quote, sender phone, LLM's reason, and a Teams-native
-   `@mention` of the GM mapped to that phone number in [src/gm.ts](src/gm.ts).
+   - `org_phone` (the GM's WhatsApp number that received the message) isn't
+     one of the numbers in [src/gm.ts](src/gm.ts) — this is a strict
+     allowlist, not a blocklist, so no LLM spend happens on untracked numbers
+   - the message was already recorded in Supabase — Periskope is known to
+     fire the same webhook event 2-3 times per delivery, so this dedup check
+     runs *before* the LLM call specifically to avoid double-billing
+     OpenRouter on duplicate deliveries. The dedup key is namespaced per
+     pipeline (`<message_id>` for opportunity, `flagged:<message_id>` for
+     flagged) so the same WhatsApp message can legitimately produce both a
+     💰 and a 🚩 alert.
+4. **Opportunity pipeline only:** the message body is sent to an LLM via
+   OpenRouter ([src/classify.ts](src/classify.ts)) with a system prompt
+   asking for strict JSON: `{"is_opportunity": boolean}`. If `is_opportunity`
+   is false (or the LLM call errors — it fails closed), processing stops
+   here. The flagged pipeline skips this step entirely — a manual flag is
+   already a human decision.
+5. The alert is posted to `N8N_TEAMS_WEBHOOK_URL` with the chat name (or
+   sender phone), the quoted message, the time in IST, and a Teams-native
+   `@mention` of the GM mapped to `org_phone` in [src/gm.ts](src/gm.ts).
+   The title is prefixed 💰 for opportunity alerts and 🚩 for flagged alerts.
    The n8n workflow (external to this repo) forwards it into Microsoft Teams
    via Graph API.
 
@@ -59,11 +79,11 @@ design from scratch.
 
 | File | Purpose |
 |---|---|
-| [src/main.ts](src/main.ts) | Express app, `/webhook` route, orchestration |
+| [src/main.ts](src/main.ts) | Express app, `/webhook` route, routes `message.created` / `message.flagged` into the shared `handleMessage(kind, …)` |
 | [src/classify.ts](src/classify.ts) | LLM classification call via OpenRouter (OpenAI-compatible client) |
 | [src/gm.ts](src/gm.ts) | Static phone number → `{name, aadId}` map, ships with **13 placeholder entries** |
-| [src/teams.ts](src/teams.ts) | Builds the Teams `@mention` payload (`<at id="0">Name</at>` + matching `mentions[]` entry) and POSTs it |
-| [src/db.ts](src/db.ts) | Supabase dedup insert against `gm_opportunity_messages`, keyed on Postgres unique-violation error code `23505` |
+| [src/teams.ts](src/teams.ts) | Builds the Teams `@mention` payload (`<at id="0">Name</at>` + matching `mentions[]` entry) with a per-`kind` emoji (💰 / 🚩) and POSTs it |
+| [src/db.ts](src/db.ts) | Supabase dedup insert against `gm_opportunity_messages`, keyed on Postgres unique-violation error code `23505`; key is namespaced per `kind` |
 | [src/config.ts](src/config.ts) | Typed env var loader |
 | [src/phone.ts](src/phone.ts) | Shared phone-number normalization (`stripPhoneSuffix`) |
 | [src/types.ts](src/types.ts) | Shared TS interfaces |
@@ -116,9 +136,10 @@ These were explicitly chosen with the user during planning, not assumed:
      created_at timestamptz default now()
    );
    ```
-5. **Confirm the Periskope webhook is actually configured** to send
-   `message.created` events (not just `message.flagged`, which is what the
-   AIA bot's Periskope config already listens for) to this service's URL.
+5. **Confirm the Periskope webhook is actually configured** to send both
+   `message.created` **and** `message.flagged` events to this service's URL.
+   (`message.flagged` for 1:1 chats must be enabled in Periskope for the 🚩
+   pipeline to receive anything.)
 6. **Pick a free host port for deploy** — `docker-compose.yml` currently
    maps `8002:8000` and a hostname `gm-opportunity.187-127-173-25.sslip.io`,
    chosen to avoid clashing with AIA-Flagged Automation (port 8000) and
@@ -162,6 +183,26 @@ credentials) a Teams POST attempt. Re-sending the same `unique_id` should be
 skipped as a duplicate. A payload from an untracked number, an outbound
 message, or a group chat_id (`@g.us`) should each be skipped before any LLM
 call.
+
+Simulate a flagged message (no LLM call — goes straight to Teams with 🚩):
+```
+curl -X POST http://localhost:8000/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "message.flagged",
+    "data": {
+      "message_id": "test-1",
+      "chat_id": "919999999999@c.us",
+      "sender_phone": "919999999999",
+      "org_phone": "910000000001",
+      "body": "Please call me back about the contract",
+      "from_me": false
+    }
+  }'
+```
+Note `"message_id": "test-1"` does **not** collide with the opportunity
+`"unique_id": "test-1"` above — the flagged pipeline dedups on
+`flagged:test-1`.
 
 ## Deploy
 

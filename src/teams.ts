@@ -1,8 +1,14 @@
 import config from "./config";
-import { NotifyOpportunityParams } from "./types";
+import { AlertKind, NotifyParams } from "./types";
 import { stripPhoneSuffix } from "./phone";
 
 const REQUEST_TIMEOUT_MS = 15_000;
+
+// Emoji prefix on the Teams title so the two alert types are distinguishable at a glance.
+const EMOJI: Record<AlertKind, string> = {
+  opportunity: "💰",
+  flagged: "🚩",
+};
 
 function formatKolkataTime(): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -19,8 +25,8 @@ function formatKolkataTime(): string {
   return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")} IST`;
 }
 
-export async function notifyOpportunity(params: NotifyOpportunityParams): Promise<void> {
-  const { senderPhone, chatName, body, teamsChatId, gm } = params;
+export async function notifyTeams(params: NotifyParams): Promise<void> {
+  const { kind, senderPhone, chatName, body, teamsChatId, gm } = params;
 
   if (!config.N8N_TEAMS_WEBHOOK_URL) {
     console.log("[teams] No N8N_TEAMS_WEBHOOK_URL configured — skipping notification.");
@@ -39,7 +45,7 @@ export async function notifyOpportunity(params: NotifyOpportunityParams): Promis
   const mentionTag = gm ? `<br><at id="0">${gm.name}</at>` : "";
 
   const content =
-    `<b>💰 ${title}</b><br>` +
+    `<b>${EMOJI[kind]} ${title}</b><br>` +
     `<i>"${quoted}"</i><br>` +
     `Time: ${now}` +
     mentionTag;
@@ -85,7 +91,7 @@ export async function notifyOpportunity(params: NotifyOpportunityParams): Promis
     }
 
     const who = gm ? ` (mentioning ${gm.name})` : "";
-    console.log(`[teams] Opportunity notification sent for ${cleanPhone}${who}.`);
+    console.log(`[teams] ${kind} notification sent for ${cleanPhone}${who}.`);
   } catch (e) {
     console.error(`[teams] ERROR sending Teams notification:`, e);
   } finally {
