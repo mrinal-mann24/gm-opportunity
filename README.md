@@ -58,10 +58,10 @@ design from scratch.
    - the message was already recorded in Supabase — Periskope is known to
      fire the same webhook event 2-3 times per delivery, so this dedup check
      runs *before* the LLM call specifically to avoid double-billing
-     OpenRouter on duplicate deliveries. The dedup key is namespaced per
-     pipeline (`<message_id>` for opportunity, `flagged:<message_id>` for
-     flagged) so the same WhatsApp message can legitimately produce both a
-     💰 and a 🚩 alert.
+     OpenRouter on duplicate deliveries. The dedup key is the bare
+     `message_id` and is **shared by both pipelines**, so each WhatsApp
+     message produces at most one Teams alert: if the LLM already raised a
+     💰 for it, a later manual flag is dropped (and vice versa).
 4. **Opportunity pipeline only:** the message body is sent to an LLM via
    OpenRouter ([src/classify.ts](src/classify.ts)) with a system prompt
    asking for strict JSON: `{"is_opportunity": boolean}`. If `is_opportunity`
@@ -83,7 +83,7 @@ design from scratch.
 | [src/classify.ts](src/classify.ts) | LLM classification call via OpenRouter (OpenAI-compatible client) |
 | [src/gm.ts](src/gm.ts) | Static phone number → `{name, aadId}` map, ships with **13 placeholder entries** |
 | [src/teams.ts](src/teams.ts) | Builds the Teams `@mention` payload (`<at id="0">Name</at>` + matching `mentions[]` entry) with a per-`kind` emoji (💰 / 🚩) and POSTs it |
-| [src/db.ts](src/db.ts) | Supabase dedup insert against `gm_opportunity_messages`, keyed on Postgres unique-violation error code `23505`; key is namespaced per `kind` |
+| [src/db.ts](src/db.ts) | Supabase dedup insert against `gm_opportunity_messages`, keyed on Postgres unique-violation error code `23505`; one row per message shared by both pipelines |
 | [src/config.ts](src/config.ts) | Typed env var loader |
 | [src/phone.ts](src/phone.ts) | Shared phone-number normalization (`stripPhoneSuffix`) |
 | [src/types.ts](src/types.ts) | Shared TS interfaces |
@@ -200,9 +200,9 @@ curl -X POST http://localhost:8000/webhook \
     }
   }'
 ```
-Note `"message_id": "test-1"` does **not** collide with the opportunity
-`"unique_id": "test-1"` above — the flagged pipeline dedups on
-`flagged:test-1`.
+Note `"message_id": "test-1"` **collides** with the opportunity
+`"unique_id": "test-1"` above on purpose — if you already sent that one, this
+will be skipped as a duplicate. Use a fresh id to see the 🚩 alert.
 
 ## Deploy
 

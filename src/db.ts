@@ -18,24 +18,21 @@ export async function recordMessage(params: RecordMessageParams): Promise<boolea
     return true;
   }
 
-  // Namespace the key per pipeline so the same WhatsApp message can produce both a
-  // 💰 opportunity alert (LLM) and a 🚩 flagged alert (manual flag) without one
-  // blocking the other, while Periskope's duplicate webhook deliveries are still
-  // collapsed within each pipeline. Opportunity keys stay bare for backward
-  // compatibility with rows already in the table.
-  const dedupKey = kind === "opportunity" ? messageId : `${kind}:${messageId}`;
-
+  // One alert per WhatsApp message, regardless of pipeline: the key is shared
+  // between the 💰 opportunity path and the 🚩 flagged path, so whichever fires
+  // first wins and the other is dropped as a duplicate. Also collapses
+  // Periskope's 2-3x duplicate webhook deliveries.
   const { error } = await supabase.from("gm_opportunity_messages").insert({
-    message_id: dedupKey,
+    message_id: messageId,
     sender_phone: stripPhoneSuffix(senderPhone),
     body,
   });
 
   if (error) {
     if (error.code === DUPLICATE_KEY_ERROR_CODE) {
-      console.log(`[db] Message ${dedupKey} already processed — skipping.`);
+      console.log(`[db] Message ${messageId} already processed (${kind}) — skipping.`);
     } else {
-      console.error(`[db] ERROR inserting message ${dedupKey}: ${error.message}`);
+      console.error(`[db] ERROR inserting message ${messageId}: ${error.message}`);
     }
     return false;
   }

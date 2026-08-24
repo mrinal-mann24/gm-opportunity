@@ -1,7 +1,7 @@
 import express, { Request, Response } from "express";
 import config from "./config";
 import { recordMessage } from "./db";
-import { gmForPhone, isTrackedNumber } from "./gm";
+import { gmForPhone, isInternalNumber, isTrackedNumber } from "./gm";
 import { classifyMessage } from "./classify";
 import { notifyTeams } from "./teams";
 import { getChatName } from "./periskope";
@@ -49,6 +49,14 @@ async function handleMessage(kind: AlertKind, msg: PeriskopeMessageData): Promis
 
   if (!chatId.endsWith("@c.us")) {
     console.log(`[msg] chat_id '${chatId}' is not a 1:1 chat — skipping.`);
+    return { status: "ok" };
+  }
+
+  // Chats between GMs and internal team members are not customer
+  // conversations — skip whether the internal member sent the message or is
+  // the other side of the 1:1 chat.
+  if (isInternalNumber(senderPhone) || isInternalNumber(chatId)) {
+    console.log(`[msg] Internal team member chat (sender=${senderPhone} chat=${chatId}) — skipping.`);
     return { status: "ok" };
   }
 

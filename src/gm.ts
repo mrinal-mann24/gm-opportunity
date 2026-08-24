@@ -18,6 +18,21 @@ const PHONE_TO_GM: Record<string, { name: string; aadId: string }> = {
   "917338522425": { name: "Rishabh Chouhan", aadId: "eae99cba-dca4-4c5c-b236-132084bbec33" },
 };
 
+// Internal team members — GMs also chat with these numbers, and those
+// conversations must never be forwarded to Teams.
+const INTERNAL_NUMBERS = new Set([
+  "917411725500",
+  "918904255416",
+  "919740013107",
+  "917411724400",
+  "917022105657",
+  "916366575567",
+]);
+
+export function isInternalNumber(phone: string): boolean {
+  return INTERNAL_NUMBERS.has(stripPhoneSuffix(phone));
+}
+
 export function gmForPhone(phone: string): GmMention | null {
   const entry = PHONE_TO_GM[stripPhoneSuffix(phone)];
   return entry ? { name: entry.name, aadId: entry.aadId } : null;
