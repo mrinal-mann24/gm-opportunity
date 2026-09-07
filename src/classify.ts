@@ -9,9 +9,14 @@ const client = new OpenAI({
 
 const SYSTEM_PROMPT = `You classify inbound WhatsApp messages for a sales team.
 Respond with a strict JSON object: {"is_opportunity": boolean}.
-Mark is_opportunity true if the message is a pricing question, quote request,
-product/service inquiry, or expresses interest in buying/subscribing.
-Mark false for support requests, complaints, casual chat, or anything unrelated to sales.`;
+Mark is_opportunity true if the message is any sales-relevant signal, including:
+- a pricing question, quote request, or product/service inquiry
+- expressing interest in buying/subscribing
+- a decline or objection after pricing was discussed (e.g. "too costly", "not in our budget",
+  "not interested", "we'll pass", "too expensive for us")
+These decline/objection messages matter just as much as the original inquiry — the sales
+manager needs to see how the opportunity was lost, not just that it started.
+Mark false only for support requests, complaints, casual chat, or anything unrelated to sales.`;
 
 export async function classifyMessage(body: string): Promise<ClassifyResult> {
   if (!body || !body.trim()) {
