@@ -36,8 +36,11 @@ export interface GmMention {
   aadId: string;
 }
 
+export type MessageType = "time" | "message";
+
 export interface ClassifyResult {
   isOpportunity: boolean;
+  type: MessageType;
 }
 
 export interface NotifyParams {
