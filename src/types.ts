@@ -45,6 +45,7 @@ export interface ClassifyResult {
 
 export interface NotifyParams {
   kind: AlertKind;
+  messageType?: MessageType;
   senderPhone: string;
   chatName: string | null;
   body: string;

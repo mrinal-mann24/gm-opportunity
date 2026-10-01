@@ -5,7 +5,7 @@ import { gmForPhone, isInternalNumber, isTrackedNumber } from "./gm";
 import { classifyMessage } from "./classify";
 import { notifyTeams } from "./teams";
 import { getChatName } from "./periskope";
-import { AlertKind, PeriskopeMessageData, PeriskopeWebhookPayload } from "./types";
+import { AlertKind, MessageType, PeriskopeMessageData, PeriskopeWebhookPayload } from "./types";
 
 const app = express();
 app.use(express.json());
@@ -73,12 +73,14 @@ async function handleMessage(kind: AlertKind, msg: PeriskopeMessageData): Promis
 
   // A manual flag is an explicit human decision — forward it as-is. Only
   // message.created events go through the LLM.
+  let messageType: MessageType | undefined;
   if (kind === "opportunity") {
-    const { isOpportunity } = await classifyMessage(body);
+    const { isOpportunity, type } = await classifyMessage(body);
     if (!isOpportunity) {
       console.log(`[msg] Not an opportunity — skipping.`);
       return { status: "ok" };
     }
+    messageType = type;
   }
 
   const teamsChatId = config.DEFAULT_TEAMS_CHAT_ID;
@@ -91,7 +93,7 @@ async function handleMessage(kind: AlertKind, msg: PeriskopeMessageData): Promis
   const chatName = await getChatName(chatId, orgPhone);
 
   console.log(`[msg] Alerting Teams (${kind}) for ${senderPhone}${gm ? ` — mentioning ${gm.name}` : ""}.`);
-  await notifyTeams({ kind, senderPhone, chatName, body, teamsChatId, gm });
+  await notifyTeams({ kind, messageType, senderPhone, chatName, body, teamsChatId, gm });
 
   return { status: "ok" };
 }
