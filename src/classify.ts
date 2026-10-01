@@ -14,8 +14,13 @@ Mark is_opportunity true if the message is any sales-relevant signal, including:
 - expressing interest in buying/subscribing
 - a decline or objection after pricing was discussed (e.g. "too costly", "not in our budget",
   "not interested", "we'll pass", "too expensive for us")
-These decline/objection messages matter just as much as the original inquiry — the sales
-manager needs to see how the opportunity was lost, not just that it started.
+- a timing or scheduling reply tied to the sales conversation (e.g. "around 1pm", "call me
+  tomorrow", "let's connect next week", "give me a day or two", "Let’s connect at 8 pm ?", "yes we can connect now", "4:30 evening?? Will it be fine?", "10:30 Pm" )
+- a request to escalate or involve someone else (e.g. "let me check with my manager", "loop
+  in my partner", "can someone call me back", "connect me to your senior")
+These decline/objection, timing/scheduling, and escalation messages matter just as much as the
+original inquiry — the sales manager needs to see how the opportunity progressed or was lost,
+not just that it started.
 Mark false only for support requests, complaints, casual chat, or anything unrelated to sales.`;
 
 export async function classifyMessage(body: string): Promise<ClassifyResult> {
