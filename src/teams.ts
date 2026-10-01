@@ -54,6 +54,7 @@ export async function notifyTeams(params: NotifyParams): Promise<void> {
   const payload: {
     chat_id: string;
     message: string;
+    message_type: string;
     mentions?: Array<{
       id: number;
       mentionText: string;
@@ -62,6 +63,7 @@ export async function notifyTeams(params: NotifyParams): Promise<void> {
   } = {
     chat_id: teamsChatId,
     message: content,
+    message_type: messageType ?? "message",
   };
 
   if (gm) {
