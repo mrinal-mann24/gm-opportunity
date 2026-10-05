@@ -69,6 +69,10 @@ const PHONE_TO_GM: Record<string, { name: string; aadId: string }> = {
     name: "Bhavya Sikka",
     aadId: "2991e98b-230b-4341-bbc6-c0f8f52cd3b3",
   },
+  "919740012976": {
+    name: "Milind Desai",
+    aadId: "cac20177-ad66-4b7a-876b-d357c193a779",
+  },
 };
 
 // Internal team members — GMs also chat with these numbers, and those
