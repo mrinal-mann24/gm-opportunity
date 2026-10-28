@@ -60,6 +60,13 @@ async function handleMessage(kind: AlertKind, msg: PeriskopeMessageData): Promis
     return { status: "ok" };
   }
 
+  // Auto-generated free-trial signup greeting ("Hi <name>, I just signed up
+  // for the AI Accountant free trial.") — not a real opportunity message.
+  if (/^\s*hi\s+[^,]+,\s*i just signed up for the ai accountant free trial\.?\s*$/i.test(body ?? "")) {
+    console.log(`[msg] Free-trial signup template message — skipping.`);
+    return { status: "ok" };
+  }
+
   if (!isTrackedNumber(orgPhone)) {
     console.log(`[msg] org_phone '${orgPhone}' is not one of the tracked GM numbers — skipping.`);
     return { status: "ok" };
